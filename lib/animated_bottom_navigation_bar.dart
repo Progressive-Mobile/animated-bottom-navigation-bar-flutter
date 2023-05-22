@@ -115,6 +115,8 @@ class AnimatedBottomNavigationBar extends StatefulWidget {
   /// Makes sense only if [backgroundColor] opacity is < 1.
   final bool blurEffect;
 
+  final double maxIconScale;
+
   static const _defaultSplashRadius = 24.0;
 
   AnimatedBottomNavigationBar._internal({
@@ -148,10 +150,10 @@ class AnimatedBottomNavigationBar extends StatefulWidget {
     this.hideAnimationController,
     this.backgroundGradient,
     this.blurEffect = false,
+    required this.maxIconScale,
   })  : assert(icons != null || itemCount != null),
         assert(
-          ((itemCount ?? icons!.length) >= 2) &&
-              ((itemCount ?? icons!.length) <= 5),
+          ((itemCount ?? icons!.length) >= 2) && ((itemCount ?? icons!.length) <= 5),
         ),
         super(key: key) {
     if (gapLocation == GapLocation.end) {
@@ -163,8 +165,7 @@ class AnimatedBottomNavigationBar extends StatefulWidget {
     if (gapLocation == GapLocation.center) {
       final iconsCountIsOdd = (itemCount ?? icons!.length).isOdd;
       if (iconsCountIsOdd)
-        throw NonAppropriatePathException(
-            'Odd count of icons along with $gapLocation causes render issue => '
+        throw NonAppropriatePathException('Odd count of icons along with $gapLocation causes render issue => '
             'consider set gapLocation to ${GapLocation.end}');
     }
   }
@@ -197,9 +198,11 @@ class AnimatedBottomNavigationBar extends StatefulWidget {
     Curve? hideAnimationCurve,
     AnimationController? hideAnimationController,
     Gradient? backgroundGradient,
+    double maxIconScale = 1,
     bool blurEffect = false,
   }) : this._internal(
           key: key,
+          maxIconScale: maxIconScale,
           icons: icons,
           activeIndex: activeIndex,
           onTap: onTap,
@@ -256,7 +259,9 @@ class AnimatedBottomNavigationBar extends StatefulWidget {
     AnimationController? hideAnimationController,
     Gradient? backgroundGradient,
     bool blurEffect = false,
+    double maxIconScale = 1,
   }) : this._internal(
+          maxIconScale: maxIconScale,
           key: key,
           tabBuilder: tabBuilder,
           itemCount: itemCount,
@@ -286,12 +291,10 @@ class AnimatedBottomNavigationBar extends StatefulWidget {
         );
 
   @override
-  _AnimatedBottomNavigationBarState createState() =>
-      _AnimatedBottomNavigationBarState();
+  _AnimatedBottomNavigationBarState createState() => _AnimatedBottomNavigationBarState();
 }
 
-class _AnimatedBottomNavigationBarState
-    extends State<AnimatedBottomNavigationBar> with TickerProviderStateMixin {
+class _AnimatedBottomNavigationBarState extends State<AnimatedBottomNavigationBar> with TickerProviderStateMixin {
   late ValueListenable<ScaffoldGeometry> geometryListenable;
 
   late AnimationController _bubbleController;
@@ -319,6 +322,7 @@ class _AnimatedBottomNavigationBarState
     _bubbleController = AnimationController(
       duration: Duration(milliseconds: widget.splashSpeedInMilliseconds ?? 300),
       vsync: this,
+      upperBound: widget.maxIconScale,
     );
 
     final bubbleCurve = CurvedAnimation(
@@ -334,10 +338,10 @@ class _AnimatedBottomNavigationBarState
             _bubbleRadius = 0;
           }
 
-          if (bubbleCurve.value < 0.5) {
+          if (bubbleCurve.value < widget.maxIconScale / 2) {
             _iconScale = 1 + bubbleCurve.value;
           } else {
-            _iconScale = 2 - bubbleCurve.value;
+            _iconScale = 1 + widget.maxIconScale - bubbleCurve.value;
           }
         });
       });
@@ -420,9 +424,8 @@ class _AnimatedBottomNavigationBarState
 
   List<Widget> _buildItems() {
     final gapWidth = widget.gapWidth ?? 72;
-    final gapItemWidth = widget.notchAndCornersAnimation != null
-        ? gapWidth * widget.notchAndCornersAnimation!.value
-        : gapWidth;
+    final gapItemWidth =
+        widget.notchAndCornersAnimation != null ? gapWidth * widget.notchAndCornersAnimation!.value : gapWidth;
     final itemCount = widget.itemCount ?? widget.icons!.length;
 
     final items = <Widget>[];
@@ -457,12 +460,6 @@ class _AnimatedBottomNavigationBarState
   }
 }
 
-enum NotchSmoothness {
-  sharpEdge,
-  defaultEdge,
-  softEdge,
-  smoothEdge,
-  verySmoothEdge
-}
+enum NotchSmoothness { sharpEdge, defaultEdge, softEdge, smoothEdge, verySmoothEdge }
 
 enum GapLocation { none, center, end }
